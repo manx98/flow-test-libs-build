@@ -15,8 +15,17 @@ MODULES="${MODULES:-core,imgproc,imgcodecs}"
 
 if [[ ! -f "$OPENCV_SRC/CMakeLists.txt" ]]; then
   echo "OpenCV source not found: $OPENCV_SRC" >&2
+  echo "ROOT_DIR=$ROOT_DIR" >&2
+  echo "BUILD_DIR=$BUILD_DIR" >&2
+  find "$ROOT_DIR" -maxdepth 2 -name CMakeLists.txt -print >&2 || true
   exit 1
 fi
+
+printf 'OpenCV source: %s\n' "$OPENCV_SRC"
+printf 'Build dir:     %s\n' "$BUILD_DIR"
+printf 'Install dir:   %s\n' "$INSTALL_DIR"
+printf 'Modules:       %s\n' "$MODULES"
+printf 'Vulkan:        %s\n' "$WITH_VULKAN"
 
 mkdir -p "$BUILD_DIR"
 cmake_args=(

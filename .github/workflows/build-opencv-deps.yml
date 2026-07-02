@@ -38,6 +38,7 @@ jobs:
                 build-essential ca-certificates cmake file git ninja-build patchelf pkg-config python3 tar libvulkan-dev
 
               export PKG_NAME=opencv-linux-ubuntu-18.04-x64
+              export OPENCV_SRC=/work/opencv
               export INSTALL_DIR=/work/package-root/$PKG_NAME
               export BUILD_DIR=/work/build-opencv-linux
               export WITH_VULKAN=ON
@@ -109,6 +110,7 @@ jobs:
         run: |
           set -euo pipefail
           export PKG_NAME=opencv-windows-mingw-ucrt64-x64
+          export OPENCV_SRC="$PWD/opencv"
           export INSTALL_DIR="$PWD/package-root/$PKG_NAME"
           export BUILD_DIR="$PWD/build-opencv-windows"
           export WITH_VULKAN=ON
