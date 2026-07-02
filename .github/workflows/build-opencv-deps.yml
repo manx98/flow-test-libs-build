@@ -35,10 +35,8 @@ jobs:
               export DEBIAN_FRONTEND=noninteractive
               apt-get update
               apt-get install -y --no-install-recommends \
-                build-essential ca-certificates file git patchelf pkg-config python3 python3-pip tar libvulkan-dev
-              python3 -m pip install --upgrade "cmake>=3.20" ninja
+                build-essential ca-certificates cmake file git ninja-build patchelf pkg-config python3 tar libvulkan-dev
 
-              export PATH="$HOME/.local/bin:$PATH"
               export PKG_NAME=opencv-linux-ubuntu-18.04-x64
               export INSTALL_DIR=/work/package-root/$PKG_NAME
               export BUILD_DIR=/work/build-opencv-linux
