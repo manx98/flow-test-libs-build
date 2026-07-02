@@ -141,6 +141,10 @@ jobs:
             cp -L "/ucrt64/bin/$dll" "$INSTALL_DIR/bin/"
           done
 
+          # Do not package real static archives on Windows.
+          # Keep MinGW .dll.a import libraries because they are required to link against the packaged DLLs.
+          find "$INSTALL_DIR" -type f -name "*.a" ! -name "*.dll.a" -print -delete
+
           {
             echo "OpenCV: $(PKG_CONFIG_PATH="$INSTALL_DIR/lib/pkgconfig" pkg-config --modversion opencv4)"
             echo "Platform: windows-mingw-ucrt64-x64"
