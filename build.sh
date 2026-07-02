@@ -6,6 +6,7 @@ OPENCV_SRC="${OPENCV_SRC:-$ROOT_DIR/opencv}"
 BUILD_DIR="${BUILD_DIR:-$ROOT_DIR/build-opencv}"
 INSTALL_DIR="${INSTALL_DIR:-$ROOT_DIR/dist/opencv}"
 JOBS="${JOBS:-$(nproc)}"
+WITH_VULKAN="${WITH_VULKAN:-ON}"
 
 # Required by:
 # - PaddleOCR-ncnn-CPP: core/imgproc/imgcodecs via opencv.hpp, imread/imwrite, geometry and image ops
@@ -23,6 +24,9 @@ cmake -S "$OPENCV_SRC" -B "$BUILD_DIR" -G Ninja \
   -D CMAKE_POSITION_INDEPENDENT_CODE=ON \
   -D BUILD_LIST="$MODULES" \
   -D BUILD_SHARED_LIBS=ON \
+  -D BUILD_ZLIB=ON \
+  -D BUILD_JPEG=ON \
+  -D BUILD_PNG=ON \
   -D ENABLE_CCACHE=OFF \
   -D OPENCV_GENERATE_PKGCONFIG=ON \
   -D BUILD_EXAMPLES=OFF \
@@ -45,8 +49,13 @@ cmake -S "$OPENCV_SRC" -B "$BUILD_DIR" -G Ninja \
   -D WITH_FFMPEG=OFF \
   -D WITH_GSTREAMER=OFF \
   -D WITH_GTK=OFF \
-  -D WITH_VULKAN=ON \
+  -D WITH_VULKAN="$WITH_VULKAN" \
   -D WITH_V4L=OFF
+
+if [[ "$WITH_VULKAN" == "ON" ]] && ! grep -q '^HAVE_VULKAN=1$' "$BUILD_DIR/CMakeVars.txt"; then
+  echo "Vulkan support is required but OpenCV did not enable it." >&2
+  exit 1
+fi
 
 cmake --build "$BUILD_DIR" --parallel "$JOBS"
 cmake --install "$BUILD_DIR"

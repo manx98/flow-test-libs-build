@@ -1,0 +1,153 @@
+name: Build OpenCV dependency packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Platform to build
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - linux
+          - windows
+
+jobs:
+  linux:
+    name: Linux Ubuntu 18.04 x64
+    runs-on: ubuntu-latest
+    if: ${{ inputs.target == 'all' || inputs.target == 'linux' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Build in Ubuntu 18.04 container
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            ubuntu:18.04 \
+            bash -lc '
+              set -euo pipefail
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                build-essential ca-certificates file git patchelf pkg-config python3 python3-pip tar libvulkan-dev
+              python3 -m pip install --upgrade "cmake>=3.20" ninja
+
+              export PATH="$HOME/.local/bin:$PATH"
+              export PKG_NAME=opencv-linux-ubuntu-18.04-x64
+              export INSTALL_DIR=/work/package-root/$PKG_NAME
+              export BUILD_DIR=/work/build-opencv-linux
+              export WITH_VULKAN=ON
+              export JOBS="$(nproc)"
+              rm -rf "$BUILD_DIR" /work/package-root /work/artifacts
+              ./build.sh
+
+              mkdir -p "$INSTALL_DIR/lib"
+              cp -L /usr/lib/x86_64-linux-gnu/libvulkan.so.1 "$INSTALL_DIR/lib/"
+              for so in "$INSTALL_DIR"/lib/libopencv_*.so*; do
+                [[ -f "$so" ]] || continue
+                ldd "$so" | awk '\''/=> \// {print $3}'\'' | while read -r dep; do
+                  case "$(basename "$dep")" in
+                    libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|ld-linux-*.so.*) ;;
+                    *) cp -Ln "$dep" "$INSTALL_DIR/lib/" ;;
+                  esac
+                done
+              done
+              find "$INSTALL_DIR/lib" -maxdepth 1 -name "libopencv_*.so*" -type f -exec patchelf --set-rpath "\$ORIGIN" {} +
+
+              {
+                echo "OpenCV: $(PKG_CONFIG_PATH="$INSTALL_DIR/lib/pkgconfig" pkg-config --modversion opencv4)"
+                echo "Platform: linux-ubuntu-18.04-x64"
+                echo "Modules: ${MODULES:-core,imgproc,imgcodecs}"
+                echo "Vulkan: required"
+                echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              } > "$INSTALL_DIR/BUILD_INFO.txt"
+
+              mkdir -p /work/artifacts
+              tar -C /work/package-root -czf /work/artifacts/$PKG_NAME.tar.gz "$PKG_NAME"
+            '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opencv-linux-ubuntu-18.04-x64
+          path: artifacts/opencv-linux-ubuntu-18.04-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    name: Windows MinGW UCRT64 x64
+    runs-on: windows-latest
+    if: ${{ inputs.target == 'all' || inputs.target == 'windows' }}
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            base-devel
+            git
+            tar
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-vulkan-headers
+            mingw-w64-ucrt-x86_64-vulkan-loader
+
+      - name: Build and package
+        run: |
+          set -euo pipefail
+          export PKG_NAME=opencv-windows-mingw-ucrt64-x64
+          export INSTALL_DIR="$PWD/package-root/$PKG_NAME"
+          export BUILD_DIR="$PWD/build-opencv-windows"
+          export WITH_VULKAN=ON
+          export JOBS="$(nproc)"
+          rm -rf "$BUILD_DIR" package-root artifacts
+          ./build.sh
+
+          mkdir -p "$INSTALL_DIR/bin"
+          copied_vulkan=0
+          for dll in /ucrt64/bin/libvulkan-1.dll /ucrt64/bin/vulkan-1.dll; do
+            if [[ -f "$dll" ]]; then
+              cp -L "$dll" "$INSTALL_DIR/bin/"
+              copied_vulkan=1
+            fi
+          done
+          if [[ "$copied_vulkan" -ne 1 ]]; then
+            echo "Vulkan loader DLL not found." >&2
+            exit 1
+          fi
+          for dll in libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll; do
+            cp -L "/ucrt64/bin/$dll" "$INSTALL_DIR/bin/"
+          done
+
+          {
+            echo "OpenCV: $(PKG_CONFIG_PATH="$INSTALL_DIR/lib/pkgconfig" pkg-config --modversion opencv4)"
+            echo "Platform: windows-mingw-ucrt64-x64"
+            echo "Modules: ${MODULES:-core,imgproc,imgcodecs}"
+            echo "Vulkan: required"
+            echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$INSTALL_DIR/BUILD_INFO.txt"
+
+          mkdir -p artifacts
+          tar -C package-root -czf "artifacts/$PKG_NAME.tar.gz" "$PKG_NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opencv-windows-mingw-ucrt64-x64
+          path: artifacts/opencv-windows-mingw-ucrt64-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
