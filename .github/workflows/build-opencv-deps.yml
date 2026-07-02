@@ -54,7 +54,7 @@ jobs:
                   dep_name="$(basename "$dep")"
                   dst="$INSTALL_DIR/lib/$dep_name"
                   case "$dep_name" in
-                    libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|ld-linux-*.so.*|libstdc++*.so.*) ;;
+                    libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|ld-linux-*.so.*|libstdc++*.so.*|libgcc*.so.*) ;;
                     *)
                       if [[ -e "$dst" ]] && [[ "$(readlink -f "$dep")" == "$(readlink -f "$dst")" ]]; then
                         continue
