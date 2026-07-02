@@ -47,7 +47,7 @@ jobs:
               ./build.sh
 
               mkdir -p "$INSTALL_DIR/lib"
-              cp -L /usr/lib/x86_64-linux-gnu/libvulkan.so.1 "$INSTALL_DIR/lib/"
+              cp -L /usr/lib/x86_64-linux-gnu/libvulkan.so.1 "$INSTALL_DIR/lib/libvulkan.so"
               for so in "$INSTALL_DIR"/lib/libopencv_*.so*; do
                 [[ -f "$so" ]] || continue
                 ldd "$so" | awk '\''/=> \// {print $3}'\'' | while read -r dep; do
@@ -129,7 +129,7 @@ jobs:
           copied_vulkan=0
           for dll in /ucrt64/bin/libvulkan-1.dll /ucrt64/bin/vulkan-1.dll; do
             if [[ -f "$dll" ]]; then
-              cp -L "$dll" "$INSTALL_DIR/bin/"
+              cp -L "$dll" "$INSTALL_DIR/bin"
               copied_vulkan=1
             fi
           done
