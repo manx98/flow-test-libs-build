@@ -51,9 +51,16 @@ jobs:
               for so in "$INSTALL_DIR"/lib/libopencv_*.so*; do
                 [[ -f "$so" ]] || continue
                 ldd "$so" | awk '\''/=> \// {print $3}'\'' | while read -r dep; do
-                  case "$(basename "$dep")" in
-                    libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|ld-linux-*.so.*) ;;
-                    *) cp -Ln "$dep" "$INSTALL_DIR/lib/" ;;
+                  dep_name="$(basename "$dep")"
+                  dst="$INSTALL_DIR/lib/$dep_name"
+                  case "$dep_name" in
+                    libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|ld-linux-*.so.*|libstdc++*.so.*) ;;
+                    *)
+                      if [[ -e "$dst" ]] && [[ "$(readlink -f "$dep")" == "$(readlink -f "$dst")" ]]; then
+                        continue
+                      fi
+                      cp -Ln "$dep" "$INSTALL_DIR/lib/"
+                      ;;
                   esac
                 done
               done
