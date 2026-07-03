@@ -12,11 +12,6 @@ on:
           - all
           - linux
           - windows
-      release_tag:
-        description: Release tag name. Leave empty to use opencv-deps-${run_number}
-        type: string
-        required: false
-        default: ""
 
 permissions:
   contents: write
@@ -187,7 +182,6 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -199,15 +193,13 @@ jobs:
             exit 1
           fi
 
-          tag_name="$INPUT_RELEASE_TAG"
-          if [[ -z "$tag_name" ]]; then
-            tag_name="opencv-deps-${GITHUB_RUN_NUMBER}"
-          fi
+          tag_name="$(date -u +%Y%m%d)"
           release_name="OpenCV dependency packages ${tag_name}"
 
           {
             echo "OpenCV dependency packages."
             echo
+            echo "Date tag: ${tag_name}"
             echo "Target: ${{ inputs.target }}"
             echo "Commit: ${GITHUB_SHA}"
             echo "Workflow run: ${GITHUB_RUN_NUMBER}"
@@ -219,14 +211,12 @@ jobs:
           } > RELEASE_NOTES.md
 
           if gh release view "$tag_name" >/dev/null 2>&1; then
-            gh release edit "$tag_name" \
-              --target "$GITHUB_SHA" \
-              --title "$release_name" \
-              --notes-file RELEASE_NOTES.md
-            gh release upload "$tag_name" "${assets[@]}" --clobber
-          else
-            gh release create "$tag_name" "${assets[@]}" \
-              --target "$GITHUB_SHA" \
-              --title "$release_name" \
-              --notes-file RELEASE_NOTES.md
+            gh release delete "$tag_name" --yes --cleanup-tag
+          elif git ls-remote --exit-code --tags origin "refs/tags/$tag_name" >/dev/null 2>&1; then
+            git push origin ":refs/tags/$tag_name"
           fi
+
+          gh release create "$tag_name" "${assets[@]}" \
+            --target "$GITHUB_SHA" \
+            --title "$release_name" \
+            --notes-file RELEASE_NOTES.md
