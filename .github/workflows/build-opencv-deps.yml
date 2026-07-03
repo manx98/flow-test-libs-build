@@ -40,7 +40,14 @@ jobs:
               apt-get install -y --no-install-recommends \
                 build-essential ca-certificates cmake file git ninja-build patchelf pkg-config python3 tar libvulkan-dev
 
-              git config --global --add safe.directory /work
+              for safe_dir in \
+                /work \
+                /work/opencv \
+                /work/ncnn \
+                /work/ncnn/glslang \
+                /work/ncnn/python/pybind11; do
+                git config --global --add safe.directory "$safe_dir"
+              done
               git submodule sync --recursive
               git submodule update --init --recursive opencv ncnn
 
