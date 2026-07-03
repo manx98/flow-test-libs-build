@@ -40,11 +40,63 @@ jobs:
               apt-get install -y --no-install-recommends \
                 build-essential ca-certificates cmake file git ninja-build patchelf pkg-config python3 tar libvulkan-dev
 
+              git config --global --add safe.directory /work
               git submodule sync --recursive
               git submodule update --init --recursive opencv ncnn
 
               rm -rf /work/package-root /work/artifacts
               mkdir -p /work/artifacts
+
+              pkg_config_version() {
+                local pkg="$1"
+                local root="$2"
+                local pc pc_dir
+                pc="$(find "$root" -type f -name "$pkg.pc" -print -quit)"
+                if [[ -z "$pc" ]]; then
+                  echo "unknown ($pkg.pc not found)"
+                  return 0
+                fi
+                pc_dir="$(dirname "$pc")"
+                if PKG_CONFIG_PATH="$pc_dir" pkg-config --exists "$pkg"; then
+                  PKG_CONFIG_PATH="$pc_dir" pkg-config --modversion "$pkg"
+                else
+                  echo "unknown (pkg-config failed for $pkg)"
+                fi
+              }
+
+              build_ncnn() {
+                if [[ ! -f "$NCNN_SRC/CMakeLists.txt" ]]; then
+                  echo "ncnn source not found: $NCNN_SRC" >&2
+                  exit 1
+                fi
+                if [[ "$WITH_VULKAN" == "ON" && ! -f "$NCNN_SRC/glslang/CMakeLists.txt" ]]; then
+                  echo "ncnn Vulkan build requires the glslang submodule." >&2
+                  echo "Run: git submodule update --init --recursive ncnn" >&2
+                  exit 1
+                fi
+
+                mkdir -p "$BUILD_DIR"
+                cmake_args=(
+                  -G Ninja
+                  -DCMAKE_BUILD_TYPE=Release
+                  -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
+                  -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+                  -DNCNN_SHARED_LIB="$NCNN_SHARED_LIB"
+                  -DNCNN_INSTALL_SDK=ON
+                  -DNCNN_VULKAN="$WITH_VULKAN"
+                  -DNCNN_SYSTEM_GLSLANG=OFF
+                  -DNCNN_OPENMP="$NCNN_OPENMP"
+                  -DNCNN_BUILD_TOOLS=OFF
+                  -DNCNN_BUILD_EXAMPLES=OFF
+                  -DNCNN_BUILD_BENCHMARK=OFF
+                  -DNCNN_BUILD_TESTS=OFF
+                  -DNCNN_PYTHON=OFF
+                )
+
+                (cd "$BUILD_DIR" && cmake "${cmake_args[@]}" "$NCNN_SRC")
+                cmake --build "$BUILD_DIR" -- -j "$JOBS"
+                cmake --build "$BUILD_DIR" --target install
+              }
 
               export PKG_NAME=opencv-linux-ubuntu-18.04-x64
               export OPENCV_SRC=/work/opencv
@@ -76,7 +128,7 @@ jobs:
               find "$INSTALL_DIR/lib" -maxdepth 1 -name "libopencv_*.so*" -type f -exec patchelf --set-rpath "\$ORIGIN" {} +
 
               {
-                echo "OpenCV: $(PKG_CONFIG_PATH="$INSTALL_DIR/lib/pkgconfig" pkg-config --modversion opencv4)"
+                echo "OpenCV: $(pkg_config_version opencv4 "$INSTALL_DIR")"
                 echo "Platform: linux-ubuntu-18.04-x64"
                 echo "Modules: ${MODULES:-core,imgproc,imgcodecs}"
                 echo "Vulkan: required"
@@ -94,9 +146,12 @@ jobs:
               export NCNN_OPENMP=ON
               export JOBS="$(nproc)"
               rm -rf "$BUILD_DIR" "$INSTALL_DIR"
-              bash ./build-ncnn.sh
+              build_ncnn
 
               mkdir -p "$INSTALL_DIR/lib"
+              if [[ -f /usr/lib/x86_64-linux-gnu/libvulkan.so.1 ]]; then
+                cp -L /usr/lib/x86_64-linux-gnu/libvulkan.so.1 "$INSTALL_DIR/lib/libvulkan.so.1"
+              fi
               for so in "$INSTALL_DIR"/lib/libncnn*.so*; do
                 [[ -f "$so" ]] || continue
                 ldd "$so" | awk '\''/=> \// {print $3}'\'' | while read -r dep; do
@@ -116,7 +171,7 @@ jobs:
               find "$INSTALL_DIR/lib" -maxdepth 1 -name "libncnn*.so*" -type f -exec patchelf --set-rpath "\$ORIGIN" {} +
 
               {
-                echo "ncnn: $(PKG_CONFIG_PATH="$INSTALL_DIR/lib/pkgconfig" pkg-config --modversion ncnn)"
+                echo "ncnn: $(pkg_config_version ncnn "$INSTALL_DIR")"
                 echo "Platform: linux-ubuntu-18.04-x64"
                 echo "Vulkan: required"
                 echo "Shared lib: ON"
@@ -178,6 +233,57 @@ jobs:
           rm -rf package-root artifacts
           mkdir -p artifacts
 
+          pkg_config_version() {
+            local pkg="$1"
+            local root="$2"
+            local pc pc_dir
+            pc="$(find "$root" -type f -name "$pkg.pc" -print -quit)"
+            if [[ -z "$pc" ]]; then
+              echo "unknown ($pkg.pc not found)"
+              return 0
+            fi
+            pc_dir="$(dirname "$pc")"
+            if PKG_CONFIG_PATH="$pc_dir" pkg-config --exists "$pkg"; then
+              PKG_CONFIG_PATH="$pc_dir" pkg-config --modversion "$pkg"
+            else
+              echo "unknown (pkg-config failed for $pkg)"
+            fi
+          }
+
+          build_ncnn() {
+            if [[ ! -f "$NCNN_SRC/CMakeLists.txt" ]]; then
+              echo "ncnn source not found: $NCNN_SRC" >&2
+              exit 1
+            fi
+            if [[ "$WITH_VULKAN" == "ON" && ! -f "$NCNN_SRC/glslang/CMakeLists.txt" ]]; then
+              echo "ncnn Vulkan build requires the glslang submodule." >&2
+              echo "Run: git submodule update --init --recursive ncnn" >&2
+              exit 1
+            fi
+
+            mkdir -p "$BUILD_DIR"
+            cmake_args=(
+              -G Ninja
+              -DCMAKE_BUILD_TYPE=Release
+              -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
+              -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+              -DNCNN_SHARED_LIB="$NCNN_SHARED_LIB"
+              -DNCNN_INSTALL_SDK=ON
+              -DNCNN_VULKAN="$WITH_VULKAN"
+              -DNCNN_SYSTEM_GLSLANG=OFF
+              -DNCNN_OPENMP="$NCNN_OPENMP"
+              -DNCNN_BUILD_TOOLS=OFF
+              -DNCNN_BUILD_EXAMPLES=OFF
+              -DNCNN_BUILD_BENCHMARK=OFF
+              -DNCNN_BUILD_TESTS=OFF
+              -DNCNN_PYTHON=OFF
+            )
+
+            (cd "$BUILD_DIR" && cmake "${cmake_args[@]}" "$NCNN_SRC")
+            cmake --build "$BUILD_DIR" -- -j "$JOBS"
+            cmake --build "$BUILD_DIR" --target install
+          }
+
           export PKG_NAME=opencv-windows-mingw-ucrt64-x64
           export OPENCV_SRC="$PWD/opencv"
           export INSTALL_DIR="$PWD/package-root/$PKG_NAME"
@@ -208,7 +314,7 @@ jobs:
           find "$INSTALL_DIR" -type f -name "*.a" ! -name "*.dll.a" -print -delete
 
           {
-            echo "OpenCV: $(PKG_CONFIG_PATH="$INSTALL_DIR/lib/pkgconfig" pkg-config --modversion opencv4)"
+            echo "OpenCV: $(pkg_config_version opencv4 "$INSTALL_DIR")"
             echo "Platform: windows-mingw-ucrt64-x64"
             echo "Modules: ${MODULES:-core,imgproc,imgcodecs}"
             echo "Vulkan: required"
@@ -226,9 +332,20 @@ jobs:
           export NCNN_OPENMP=ON
           export JOBS="$(nproc)"
           rm -rf "$BUILD_DIR" "$INSTALL_DIR"
-          bash ./build-ncnn.sh
+          build_ncnn
 
           mkdir -p "$INSTALL_DIR/bin"
+          copied_vulkan=0
+          for dll in /ucrt64/bin/libvulkan-1.dll /ucrt64/bin/vulkan-1.dll; do
+            if [[ -f "$dll" ]]; then
+              cp -L "$dll" "$INSTALL_DIR/bin"
+              copied_vulkan=1
+            fi
+          done
+          if [[ "$copied_vulkan" -ne 1 ]]; then
+            echo "Vulkan loader DLL not found." >&2
+            exit 1
+          fi
           for dll in libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll libgomp-1.dll; do
             if [[ -f "/ucrt64/bin/$dll" ]]; then
               cp -L "/ucrt64/bin/$dll" "$INSTALL_DIR/bin/"
@@ -240,7 +357,7 @@ jobs:
           find "$INSTALL_DIR" -type f -name "*.a" ! -name "*.dll.a" -print -delete
 
           {
-            echo "ncnn: $(PKG_CONFIG_PATH="$INSTALL_DIR/lib/pkgconfig" pkg-config --modversion ncnn)"
+            echo "ncnn: $(pkg_config_version ncnn "$INSTALL_DIR")"
             echo "Platform: windows-mingw-ucrt64-x64"
             echo "Vulkan: required"
             echo "Shared lib: ON"
