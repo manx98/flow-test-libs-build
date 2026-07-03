@@ -12,6 +12,14 @@ on:
           - all
           - linux
           - windows
+      release_tag:
+        description: Release tag name. Leave empty to use opencv-deps-${run_number}
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: write
 
 jobs:
   linux:
@@ -162,3 +170,63 @@ jobs:
           path: artifacts/opencv-windows-mingw-ucrt64-x64.tar.gz
           if-no-files-found: error
           retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - linux
+      - windows
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          assets=(release-artifacts/*.tar.gz)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "No release artifacts found." >&2
+            find release-artifacts -type f -print >&2 || true
+            exit 1
+          fi
+
+          tag_name="$INPUT_RELEASE_TAG"
+          if [[ -z "$tag_name" ]]; then
+            tag_name="opencv-deps-${GITHUB_RUN_NUMBER}"
+          fi
+          release_name="OpenCV dependency packages ${tag_name}"
+
+          {
+            echo "OpenCV dependency packages."
+            echo
+            echo "Target: ${{ inputs.target }}"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Workflow run: ${GITHUB_RUN_NUMBER}"
+            echo
+            echo "Artifacts:"
+            for asset in "${assets[@]}"; do
+              echo "- $(basename "$asset")"
+            done
+          } > RELEASE_NOTES.md
+
+          if gh release view "$tag_name" >/dev/null 2>&1; then
+            gh release edit "$tag_name" \
+              --target "$GITHUB_SHA" \
+              --title "$release_name" \
+              --notes-file RELEASE_NOTES.md
+            gh release upload "$tag_name" "${assets[@]}" --clobber
+          else
+            gh release create "$tag_name" "${assets[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "$release_name" \
+              --notes-file RELEASE_NOTES.md
+          fi
