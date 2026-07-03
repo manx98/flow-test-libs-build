@@ -38,7 +38,16 @@ jobs:
               export DEBIAN_FRONTEND=noninteractive
               apt-get update
               apt-get install -y --no-install-recommends \
-                build-essential ca-certificates cmake file git ninja-build patchelf pkg-config python3 tar libvulkan-dev
+                build-essential ca-certificates cmake file git ninja-build patchelf pkg-config python3 tar wget libvulkan-dev
+
+              CMAKE_VERSION=3.22.6
+              CMAKE_MAJOR_MINOR="${CMAKE_VERSION%.*}"
+              CMAKE_INSTALL_DIR=/opt/cmake-${CMAKE_VERSION}-linux-x86_64
+              wget -q -O /tmp/cmake-linux-x86_64.tar.gz \
+                "https://cmake.org/files/v${CMAKE_MAJOR_MINOR}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz"
+              tar -C /opt -xzf /tmp/cmake-linux-x86_64.tar.gz
+              export PATH="$CMAKE_INSTALL_DIR/bin:$PATH"
+              cmake --version
 
               for safe_dir in \
                 /work \
