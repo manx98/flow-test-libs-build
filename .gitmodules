@@ -4,3 +4,6 @@
 [submodule "ncnn"]
 	path = ncnn
 	url = https://github.com/Tencent/ncnn
+[submodule "PaddleOCR-ncnn-CPP"]
+	path = PaddleOCR-ncnn-CPP
+	url = https://github.com/manx98/PaddleOCR-ncnn-CPP.git

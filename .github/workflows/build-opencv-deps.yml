@@ -54,11 +54,12 @@ jobs:
                 /work/opencv \
                 /work/ncnn \
                 /work/ncnn/glslang \
-                /work/ncnn/python/pybind11; do
+                /work/ncnn/python/pybind11 \
+                /work/PaddleOCR-ncnn-CPP; do
                 git config --global --add safe.directory "$safe_dir"
               done
               git submodule sync --recursive
-              git submodule update --init --recursive opencv ncnn
+              git submodule update --init --recursive opencv ncnn PaddleOCR-ncnn-CPP
 
               rm -rf /work/package-root /work/artifacts
               mkdir -p /work/artifacts
@@ -118,6 +119,42 @@ jobs:
                 cmake --build "$BUILD_DIR" --target install
               }
 
+              build_paddleocr() {
+                if [[ ! -f "$PADDLEOCR_SRC/CMakeLists.txt" ]]; then
+                  echo "PaddleOCR-ncnn-CPP source not found: $PADDLEOCR_SRC" >&2
+                  exit 1
+                fi
+                if [[ ! -f "$OPENCV_INSTALL_DIR/lib/cmake/opencv4/OpenCVConfig.cmake" ]]; then
+                  echo "OpenCVConfig.cmake not found under: $OPENCV_INSTALL_DIR" >&2
+                  exit 1
+                fi
+                if [[ ! -f "$NCNN_INSTALL_DIR/lib/cmake/ncnn/ncnnConfig.cmake" ]]; then
+                  echo "ncnnConfig.cmake not found under: $NCNN_INSTALL_DIR" >&2
+                  exit 1
+                fi
+
+                mkdir -p "$BUILD_DIR"
+                cmake_args=(
+                  -G Ninja
+                  -DCMAKE_BUILD_TYPE=Release
+                  -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
+                  -DOpenCV_DIR="$OPENCV_INSTALL_DIR/lib/cmake/opencv4"
+                  -Dncnn_DIR="$NCNN_INSTALL_DIR/lib/cmake/ncnn"
+                  -DBUILD_OCR_DEMO=ON
+                )
+
+                (cd "$BUILD_DIR" && cmake "${cmake_args[@]}" "$PADDLEOCR_SRC")
+                cmake --build "$BUILD_DIR" -- -j "$JOBS"
+                cmake --build "$BUILD_DIR" --target install
+
+                mkdir -p "$INSTALL_DIR/bin"
+                if [[ ! -f "$BUILD_DIR/paddle_ocr_demo" ]]; then
+                  echo "paddle_ocr_demo not found in build dir: $BUILD_DIR" >&2
+                  exit 1
+                fi
+                cp -L "$BUILD_DIR/paddle_ocr_demo" "$INSTALL_DIR/bin/"
+              }
+
               export PKG_NAME=opencv-linux-ubuntu-18.04-x64
               export OPENCV_SRC=/work/opencv
               export INSTALL_DIR=/work/package-root/$PKG_NAME
@@ -168,6 +205,32 @@ jobs:
               } > "$INSTALL_DIR/BUILD_INFO.txt"
 
               tar -C /work/package-root -czf /work/artifacts/$PKG_NAME.tar.gz "$PKG_NAME"
+
+              export PKG_NAME=paddleocr-ncnn-cpp-linux-ubuntu-18.04-x64
+              export PADDLEOCR_SRC=/work/PaddleOCR-ncnn-CPP
+              export INSTALL_DIR=/work/package-root/$PKG_NAME
+              export BUILD_DIR=/work/build-paddleocr-linux
+              export OPENCV_INSTALL_DIR=/work/package-root/opencv-linux-ubuntu-18.04-x64
+              export NCNN_INSTALL_DIR=/work/package-root/ncnn-linux-ubuntu-18.04-x64
+              export JOBS="$(nproc)"
+              rm -rf "$BUILD_DIR" "$INSTALL_DIR"
+              build_paddleocr
+
+              cp -a "$PADDLEOCR_SRC/models" "$INSTALL_DIR/"
+              cp "$PADDLEOCR_SRC/config.json" "$INSTALL_DIR/"
+              cp "$PADDLEOCR_SRC/LICENSE" "$INSTALL_DIR/"
+              cp "$PADDLEOCR_SRC/README.md" "$INSTALL_DIR/"
+              {
+                echo "PaddleOCR-ncnn-CPP: built from submodule"
+                echo "Platform: linux-ubuntu-18.04-x64"
+                echo "Demo: ON"
+                echo "Models: included"
+                echo "Bundled dependencies: none"
+                echo "Requires: OpenCV package and ncnn package from the same release"
+                echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              } > "$INSTALL_DIR/BUILD_INFO.txt"
+
+              tar -C /work/package-root -czf /work/artifacts/$PKG_NAME.tar.gz "$PKG_NAME"
             '
 
       - uses: actions/upload-artifact@v4
@@ -181,6 +244,13 @@ jobs:
         with:
           name: ncnn-linux-ubuntu-18.04-x64
           path: artifacts/ncnn-linux-ubuntu-18.04-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paddleocr-ncnn-cpp-linux-ubuntu-18.04-x64
+          path: artifacts/paddleocr-ncnn-cpp-linux-ubuntu-18.04-x64.tar.gz
           if-no-files-found: error
           retention-days: 7
 
@@ -216,7 +286,7 @@ jobs:
         run: |
           set -euo pipefail
           git submodule sync --recursive
-          git submodule update --init --recursive opencv ncnn
+          git submodule update --init --recursive opencv ncnn PaddleOCR-ncnn-CPP
 
           rm -rf package-root artifacts
           mkdir -p artifacts
@@ -270,6 +340,42 @@ jobs:
             (cd "$BUILD_DIR" && cmake "${cmake_args[@]}" "$NCNN_SRC")
             cmake --build "$BUILD_DIR" -- -j "$JOBS"
             cmake --build "$BUILD_DIR" --target install
+          }
+
+          build_paddleocr() {
+            if [[ ! -f "$PADDLEOCR_SRC/CMakeLists.txt" ]]; then
+              echo "PaddleOCR-ncnn-CPP source not found: $PADDLEOCR_SRC" >&2
+              exit 1
+            fi
+            if [[ ! -f "$OPENCV_INSTALL_DIR/lib/cmake/opencv4/OpenCVConfig.cmake" ]]; then
+              echo "OpenCVConfig.cmake not found under: $OPENCV_INSTALL_DIR" >&2
+              exit 1
+            fi
+            if [[ ! -f "$NCNN_INSTALL_DIR/lib/cmake/ncnn/ncnnConfig.cmake" ]]; then
+              echo "ncnnConfig.cmake not found under: $NCNN_INSTALL_DIR" >&2
+              exit 1
+            fi
+
+            mkdir -p "$BUILD_DIR"
+            cmake_args=(
+              -G Ninja
+              -DCMAKE_BUILD_TYPE=Release
+              -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
+              -DOpenCV_DIR="$OPENCV_INSTALL_DIR/lib/cmake/opencv4"
+              -Dncnn_DIR="$NCNN_INSTALL_DIR/lib/cmake/ncnn"
+              -DBUILD_OCR_DEMO=ON
+            )
+
+            (cd "$BUILD_DIR" && cmake "${cmake_args[@]}" "$PADDLEOCR_SRC")
+            cmake --build "$BUILD_DIR" -- -j "$JOBS"
+            cmake --build "$BUILD_DIR" --target install
+
+            mkdir -p "$INSTALL_DIR/bin"
+            if [[ ! -f "$BUILD_DIR/paddle_ocr_demo.exe" ]]; then
+              echo "paddle_ocr_demo.exe not found in build dir: $BUILD_DIR" >&2
+              exit 1
+            fi
+            cp -L "$BUILD_DIR/paddle_ocr_demo.exe" "$INSTALL_DIR/bin/"
           }
 
           export PKG_NAME=opencv-windows-mingw-ucrt64-x64
@@ -330,6 +436,32 @@ jobs:
 
           tar -C package-root -czf "artifacts/$PKG_NAME.tar.gz" "$PKG_NAME"
 
+          export PKG_NAME=paddleocr-ncnn-cpp-windows-mingw-ucrt64-x64
+          export PADDLEOCR_SRC="$PWD/PaddleOCR-ncnn-CPP"
+          export INSTALL_DIR="$PWD/package-root/$PKG_NAME"
+          export BUILD_DIR="$PWD/build-paddleocr-windows"
+          export OPENCV_INSTALL_DIR="$PWD/package-root/opencv-windows-mingw-ucrt64-x64"
+          export NCNN_INSTALL_DIR="$PWD/package-root/ncnn-windows-mingw-ucrt64-x64"
+          export JOBS="$(nproc)"
+          rm -rf "$BUILD_DIR" "$INSTALL_DIR"
+          build_paddleocr
+
+          cp -a "$PADDLEOCR_SRC/models" "$INSTALL_DIR/"
+          cp "$PADDLEOCR_SRC/config.json" "$INSTALL_DIR/"
+          cp "$PADDLEOCR_SRC/LICENSE" "$INSTALL_DIR/"
+          cp "$PADDLEOCR_SRC/README.md" "$INSTALL_DIR/"
+          {
+            echo "PaddleOCR-ncnn-CPP: built from submodule"
+            echo "Platform: windows-mingw-ucrt64-x64"
+            echo "Demo: ON"
+            echo "Models: included"
+            echo "Bundled dependencies: none"
+            echo "Requires: OpenCV package and ncnn package from the same release"
+            echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$INSTALL_DIR/BUILD_INFO.txt"
+
+          tar -C package-root -czf "artifacts/$PKG_NAME.tar.gz" "$PKG_NAME"
+
       - uses: actions/upload-artifact@v4
         with:
           name: opencv-windows-mingw-ucrt64-x64
@@ -341,6 +473,13 @@ jobs:
         with:
           name: ncnn-windows-mingw-ucrt64-x64
           path: artifacts/ncnn-windows-mingw-ucrt64-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paddleocr-ncnn-cpp-windows-mingw-ucrt64-x64
+          path: artifacts/paddleocr-ncnn-cpp-windows-mingw-ucrt64-x64.tar.gz
           if-no-files-found: error
           retention-days: 7
 
@@ -373,10 +512,10 @@ jobs:
           fi
 
           tag_name="$(date -u +%Y%m%d)"
-          release_name="OpenCV and ncnn dependency packages ${tag_name}"
+          release_name="OpenCV, ncnn and PaddleOCR-ncnn-CPP packages ${tag_name}"
 
           {
-            echo "OpenCV and ncnn dependency packages."
+            echo "OpenCV, ncnn and PaddleOCR-ncnn-CPP packages."
             echo
             echo "Date tag: ${tag_name}"
             echo "Target: ${{ inputs.target }}"
