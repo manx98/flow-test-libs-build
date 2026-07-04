@@ -124,22 +124,28 @@ jobs:
                   echo "PaddleOCR-ncnn-CPP source not found: $PADDLEOCR_SRC" >&2
                   exit 1
                 fi
-                if [[ ! -f "$OPENCV_INSTALL_DIR/lib/cmake/opencv4/OpenCVConfig.cmake" ]]; then
+                opencv_config="$(find "$OPENCV_INSTALL_DIR" -type f -name OpenCVConfig.cmake -print -quit)"
+                if [[ -z "$opencv_config" ]]; then
                   echo "OpenCVConfig.cmake not found under: $OPENCV_INSTALL_DIR" >&2
+                  find "$OPENCV_INSTALL_DIR" -maxdepth 5 -type f -name "*Config.cmake" -print >&2 || true
                   exit 1
                 fi
-                if [[ ! -f "$NCNN_INSTALL_DIR/lib/cmake/ncnn/ncnnConfig.cmake" ]]; then
+                ncnn_config="$(find "$NCNN_INSTALL_DIR" -type f -name ncnnConfig.cmake -print -quit)"
+                if [[ -z "$ncnn_config" ]]; then
                   echo "ncnnConfig.cmake not found under: $NCNN_INSTALL_DIR" >&2
+                  find "$NCNN_INSTALL_DIR" -maxdepth 5 -type f -name "*Config.cmake" -print >&2 || true
                   exit 1
                 fi
+                opencv_dir="$(dirname "$opencv_config")"
+                ncnn_dir="$(dirname "$ncnn_config")"
 
                 mkdir -p "$BUILD_DIR"
                 cmake_args=(
                   -G Ninja
                   -DCMAKE_BUILD_TYPE=Release
                   -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
-                  -DOpenCV_DIR="$OPENCV_INSTALL_DIR/lib/cmake/opencv4"
-                  -Dncnn_DIR="$NCNN_INSTALL_DIR/lib/cmake/ncnn"
+                  -DOpenCV_DIR="$opencv_dir"
+                  -Dncnn_DIR="$ncnn_dir"
                   -DBUILD_OCR_DEMO=ON
                 )
 
@@ -347,22 +353,28 @@ jobs:
               echo "PaddleOCR-ncnn-CPP source not found: $PADDLEOCR_SRC" >&2
               exit 1
             fi
-            if [[ ! -f "$OPENCV_INSTALL_DIR/lib/cmake/opencv4/OpenCVConfig.cmake" ]]; then
+            opencv_config="$(find "$OPENCV_INSTALL_DIR" -type f -name OpenCVConfig.cmake -print -quit)"
+            if [[ -z "$opencv_config" ]]; then
               echo "OpenCVConfig.cmake not found under: $OPENCV_INSTALL_DIR" >&2
+              find "$OPENCV_INSTALL_DIR" -maxdepth 5 -type f -name "*Config.cmake" -print >&2 || true
               exit 1
             fi
-            if [[ ! -f "$NCNN_INSTALL_DIR/lib/cmake/ncnn/ncnnConfig.cmake" ]]; then
+            ncnn_config="$(find "$NCNN_INSTALL_DIR" -type f -name ncnnConfig.cmake -print -quit)"
+            if [[ -z "$ncnn_config" ]]; then
               echo "ncnnConfig.cmake not found under: $NCNN_INSTALL_DIR" >&2
+              find "$NCNN_INSTALL_DIR" -maxdepth 5 -type f -name "*Config.cmake" -print >&2 || true
               exit 1
             fi
+            opencv_dir="$(dirname "$opencv_config")"
+            ncnn_dir="$(dirname "$ncnn_config")"
 
             mkdir -p "$BUILD_DIR"
             cmake_args=(
               -G Ninja
               -DCMAKE_BUILD_TYPE=Release
               -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
-              -DOpenCV_DIR="$OPENCV_INSTALL_DIR/lib/cmake/opencv4"
-              -Dncnn_DIR="$NCNN_INSTALL_DIR/lib/cmake/ncnn"
+              -DOpenCV_DIR="$opencv_dir"
+              -Dncnn_DIR="$ncnn_dir"
               -DBUILD_OCR_DEMO=ON
             )
 
