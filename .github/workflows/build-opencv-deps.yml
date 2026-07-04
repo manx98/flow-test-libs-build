@@ -146,19 +146,21 @@ jobs:
                   -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
                   -DOpenCV_DIR="$opencv_dir"
                   -Dncnn_DIR="$ncnn_dir"
-                  -DBUILD_OCR_DEMO=ON
+                  -DBUILD_OCR_DEMO="${PADDLEOCR_BUILD_DEMO:-OFF}"
                 )
 
                 (cd "$BUILD_DIR" && cmake "${cmake_args[@]}" "$PADDLEOCR_SRC")
                 cmake --build "$BUILD_DIR" -- -j "$JOBS"
                 cmake --build "$BUILD_DIR" --target install
 
-                mkdir -p "$INSTALL_DIR/bin"
-                if [[ ! -f "$BUILD_DIR/paddle_ocr_demo" ]]; then
-                  echo "paddle_ocr_demo not found in build dir: $BUILD_DIR" >&2
-                  exit 1
+                if [[ "${PADDLEOCR_BUILD_DEMO:-OFF}" == "ON" ]]; then
+                  mkdir -p "$INSTALL_DIR/bin"
+                  if [[ ! -f "$BUILD_DIR/paddle_ocr_demo" ]]; then
+                    echo "paddle_ocr_demo not found in build dir: $BUILD_DIR" >&2
+                    exit 1
+                  fi
+                  cp -L "$BUILD_DIR/paddle_ocr_demo" "$INSTALL_DIR/bin/"
                 fi
-                cp -L "$BUILD_DIR/paddle_ocr_demo" "$INSTALL_DIR/bin/"
               }
 
               export PKG_NAME=opencv-linux-ubuntu-18.04-x64
@@ -219,6 +221,7 @@ jobs:
               export OPENCV_INSTALL_DIR=/work/package-root/opencv-linux-ubuntu-18.04-x64
               export NCNN_INSTALL_DIR=/work/package-root/ncnn-linux-ubuntu-18.04-x64
               export JOBS="$(nproc)"
+              export PADDLEOCR_BUILD_DEMO=OFF
               rm -rf "$BUILD_DIR" "$INSTALL_DIR"
               build_paddleocr
 
@@ -229,7 +232,7 @@ jobs:
               {
                 echo "PaddleOCR-ncnn-CPP: built from submodule"
                 echo "Platform: linux-ubuntu-18.04-x64"
-                echo "Demo: ON"
+                echo "Demo: OFF (ubuntu18.04 gcc7 does not support std::filesystem)"
                 echo "Models: included"
                 echo "Bundled dependencies: none"
                 echo "Requires: OpenCV package and ncnn package from the same release"
