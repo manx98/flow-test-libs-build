@@ -181,7 +181,7 @@ jobs:
                 echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
               } > "$INSTALL_DIR/BUILD_INFO.txt"
 
-              tar -C /work/package-root -czf /work/artifacts/$PKG_NAME.tar.gz "$PKG_NAME"
+              tar -C "$INSTALL_DIR" -czf "/work/artifacts/$PKG_NAME.tar.gz" .
 
               export PKG_NAME=ncnn-linux-ubuntu-18.04-x64
               export NCNN_SRC=/work/ncnn
@@ -212,7 +212,7 @@ jobs:
                 echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
               } > "$INSTALL_DIR/BUILD_INFO.txt"
 
-              tar -C /work/package-root -czf /work/artifacts/$PKG_NAME.tar.gz "$PKG_NAME"
+              tar -C "$INSTALL_DIR" -czf "/work/artifacts/$PKG_NAME.tar.gz" .
 
               export PKG_NAME=paddleocr-ncnn-cpp-linux-ubuntu-18.04-x64
               export PADDLEOCR_SRC=/work/PaddleOCR-ncnn-CPP
@@ -239,7 +239,7 @@ jobs:
                 echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
               } > "$INSTALL_DIR/BUILD_INFO.txt"
 
-              tar -C /work/package-root -czf /work/artifacts/$PKG_NAME.tar.gz "$PKG_NAME"
+              tar -C "$INSTALL_DIR" -czf "/work/artifacts/$PKG_NAME.tar.gz" .
             '
 
       - uses: actions/upload-artifact@v4
@@ -415,7 +415,7 @@ jobs:
             echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } > "$INSTALL_DIR/BUILD_INFO.txt"
 
-          tar -C package-root -czf "artifacts/$PKG_NAME.tar.gz" "$PKG_NAME"
+          tar -C "$INSTALL_DIR" -czf "artifacts/$PKG_NAME.tar.gz" .
 
           export PKG_NAME=ncnn-windows-mingw-ucrt64-x64
           export NCNN_SRC="$PWD/ncnn"
@@ -449,7 +449,7 @@ jobs:
             echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } > "$INSTALL_DIR/BUILD_INFO.txt"
 
-          tar -C package-root -czf "artifacts/$PKG_NAME.tar.gz" "$PKG_NAME"
+          tar -C "$INSTALL_DIR" -czf "artifacts/$PKG_NAME.tar.gz" .
 
           export PKG_NAME=paddleocr-ncnn-cpp-windows-mingw-ucrt64-x64
           export PADDLEOCR_SRC="$PWD/PaddleOCR-ncnn-CPP"
@@ -475,7 +475,7 @@ jobs:
             echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } > "$INSTALL_DIR/BUILD_INFO.txt"
 
-          tar -C package-root -czf "artifacts/$PKG_NAME.tar.gz" "$PKG_NAME"
+          tar -C "$INSTALL_DIR" -czf "artifacts/$PKG_NAME.tar.gz" .
 
       - uses: actions/upload-artifact@v4
         with:
